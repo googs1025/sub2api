@@ -94,7 +94,10 @@ func (s *claudeUsageService) FetchUsageWithOptions(ctx context.Context, opts *se
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		if readErr != nil {
+			return nil, fmt.Errorf("API returned status %d (could not read body: %w)", resp.StatusCode, readErr)
+		}
 		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
 	}
 

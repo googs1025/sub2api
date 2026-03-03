@@ -252,7 +252,11 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 
 	var proxies []Proxy
 	if input.SyncProxies {
-		proxies, _ = s.proxyRepo.ListActive(ctx)
+		var err error
+		proxies, err = s.proxyRepo.ListActive(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("list active proxies: %w", err)
+		}
 	}
 
 	// Claude OAuth / Setup Token -> sub2api anthropic oauth/setup-token
@@ -1155,7 +1159,10 @@ func crsLogin(ctx context.Context, client *http.Client, baseURL, username, passw
 		"username": username,
 		"password": password,
 	}
-	body, _ := json.Marshal(payload)
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("marshal login payload: %w", err)
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/web/auth/login", bytes.NewReader(body))
 	if err != nil {
@@ -1169,7 +1176,10 @@ func crsLogin(ctx context.Context, client *http.Client, baseURL, username, passw
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return "", fmt.Errorf("read login response body: %w", err)
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return "", fmt.Errorf("crs login failed: status=%d body=%s", resp.StatusCode, string(raw))
 	}
@@ -1204,7 +1214,10 @@ func crsExportAccounts(ctx context.Context, client *http.Client, baseURL, adminT
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 5<<20))
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 5<<20))
+	if err != nil {
+		return nil, fmt.Errorf("read export response body: %w", err)
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("crs export failed: status=%d body=%s", resp.StatusCode, string(raw))
 	}
